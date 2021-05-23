@@ -37,8 +37,19 @@ def precipitation():
 	# Open Session
 	session = Session(engine)
 
+	# Date set-up
+	recent_date = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
+
+	# Change to datetime object
+	split = recent_date[0].split('-')
+	recent_date = dt.date(int(split[0]), int(split[1]), int(split[2]))
+
+	# Calculate one year before most recent data point
+	year_ago = recent_date - dt.timedelta(days=365)
+
 	# Query date and prcp
-	query = session.query(Measurement.date, Measurement.prcp, Measurement.station).all()
+	query = (session.query(Measurement.date, Measurement.prcp, Measurement.station).
+			filter(Measurement.date >= year_ago).all())
 	
 	# Close Session
 	session.close()
