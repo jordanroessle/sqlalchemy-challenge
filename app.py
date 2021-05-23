@@ -16,9 +16,6 @@ Base.prepare(engine, reflect=True)
 Measurement = Base.classes.measurement
 Station = Base.classes.station
 
-# ['measurement.id', 'measurement.station', 'measurement.date', 'measurement.prcp', 'measurement.tobs']
-# ['station.id', 'station.station', 'station.name', 'station.latitude', 'station.longitude', 'station.elevation']
-
 # Flask Setup
 app = Flask(__name__)
 
@@ -41,11 +38,12 @@ def precipitation():
 	session = Session(engine)
 
 	# Query date and prcp
-	query = session.query(Measurement.date, Measurement.prcp).all()
+	query = session.query(Measurement.date, Measurement.prcp, Measurement.station).all()
 	
 	# Close Session
 	session.close()
 
+	# Convert to dictionary
 	return_dict = {}
 	for result in query:
 		return_dict[result[0]] = result[1]
@@ -66,6 +64,7 @@ def stations():
 
 	return(jsonify(stations))
 
+
 @app.route("/api/v1.0/tobs")
 def tobs():
 	# Open Session
@@ -82,14 +81,18 @@ def tobs():
 	year_ago = recent_date - dt.timedelta(days=365)
 
 	# Find most active station
-	most_active = session.query(Measurement.station).group_by(Measurement.station).order_by(func.count(Measurement.station).desc()).first()[0]
+	most_active = (session.query(Measurement.station).group_by(Measurement.station).
+			order_by(func.count(Measurement.station).desc()).first()[0])
 
 	# Find most active station's temperature in the last year
-	temperature_year = session.query(Measurement.date, Measurement.tobs).filter(Measurement.date >= year_ago).filter(Measurement.station == most_active).all()
+	temp_year = (session.query(Measurement.date, Measurement.tobs).filter
+			(Measurement.date >= year_ago).filter(Measurement.station == most_active).all())
 
 	# Close session
 	session.close()
-	return(jsonify(temperature_year))
+
+	return(jsonify(temp_year))
+
 
 @app.route("/api/v1.0/<start>")
 def start(start):
@@ -100,9 +103,12 @@ def start(start):
 	try: 
 		start_date = dt.date(int(split[0]), int(split[1]), int(split[2]))
 	except:
-		return("The date you entered is invalid. Please try again while following this format: YYYY-MM-DD")
+		return("The date you entered is invalid. Please try again while following \
+					this format: YYYY-MM-DD")
 
-	temperatures = session.query(Measurement.date, func.min(Measurement.tobs), func.max(Measurement.tobs), func.avg(Measurement.tobs)).group_by(Measurement.date).filter(Measurement.date >= start_date).all()
+	temperatures = (session.query(Measurement.date, func.min(Measurement.tobs), 
+				func.avg(Measurement.tobs), func.max(Measurement.tobs)).group_by
+				(Measurement.date).filter(Measurement.date >= start_date).all())
 	
 	# Close Session
 	session.close()
@@ -126,7 +132,10 @@ def startend(start, end):
 	except:
 		return("The SECOND date you entered is invalid. Please try again while following this format: YYYY-MM-DD")
 
-	temperatures = session.query(Measurement.date, func.min(Measurement.tobs), func.max(Measurement.tobs), func.avg(Measurement.tobs)).group_by(Measurement.date).filter(Measurement.date >= start_date).filter(Measurement.date <= end_date).all()
+	temperatures = (session.query(Measurement.date, func.min(Measurement.tobs), 
+				func.avg(Measurement.tobs), func.max(Measurement.tobs)).group_by
+				(Measurement.date).filter(Measurement.date >= start_date).filter
+				(Measurement.date <= end_date).all())
 	
 	# Close Session
 	session.close()
